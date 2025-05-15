@@ -9,11 +9,10 @@ import {
   FlatList,
   Alert,
   StyleSheet,
-    TouchableOpacity,
+  TouchableOpacity,
 } from "react-native";
 import { List, MD3Colors } from "react-native-paper";
-import FontAwesome6 from '@expo/vector-icons/FontAwesome6';
-
+import FontAwesome6 from "@expo/vector-icons/FontAwesome6";
 export default function HomeScreen() {
   const [contacts, setContacts] = useState([]); // Lista de contatos
   const [modalVisible, setModalVisible] = useState(false); // Modal visível ou não
@@ -21,35 +20,49 @@ export default function HomeScreen() {
   const [newNumber, setNewNumber] = useState(""); // Texto da nova contato
   const [newCategory, setNewCategory] = useState(""); // Texto da nova contato
   const [editIndex, setEditIndex] = useState(null); // Índice da contato em edição
+  const [originalContact, setOriginalContact] = useState(null); // Contato original antes de edição
 
   // Função para adicionar ou editar contato
   function addOrEditContact() {
     if (!newName) return; // Se o campo estiver vazio (sem espaços ou texto), não faz nada
 
     if (editIndex === null) {
-      // Adiciona uma nova contato diretamente ao estado
-      contacts.push(newName); // Modifica o array diretamente
+      // Adiciona um novo contato ao estado
+      const newContact = {
+        name: newName,
+        number: newNumber,
+        category: newCategory,
+      };
+      setContacts([...contacts, newContact]);
     } else {
-      // Edita uma contato existente
-      contacts[editIndex] = newName; // Atualiza a contato no índice de edição
-      setEditIndex(null); // Limpa o índice de edição
+      // Edita um contato existente
+      const updatedContacts = [...contacts];
+      updatedContacts[editIndex] = {
+        name: newName,
+        number: newNumber,
+        category: newCategory,
+      };
+      setContacts(updatedContacts);
+      setEditIndex(null);
     }
 
-    setContacts(contacts); // Atualiza o estado com a lista de contatos modificada
-    setNewName(""); // Limpa o campo de texto
-    setModalVisible(false); // Fecha o modal
+    // Limpa os campos e fecha o modal
+    setNewName("");
+    setNewNumber("");
+    setNewCategory("");
+    setModalVisible(false);
   }
 
   // Função para confirmar exclusão de contato
   function confirmDelete(index) {
-    Alert.alert("Excluir Contato?", `Remover "${contacts[index]}"?`, [
+    Alert.alert("Excluir Contato?", `Remover "${contacts[index].name}"?`, [
       { text: "Cancelar", style: "cancel" },
       {
         text: "Excluir",
         style: "destructive",
         onPress: () => {
-          contacts.splice(index, 1); // Remove a contato diretamente do array
-          setContacts(contacts); // Atualiza o estado com a lista modificada
+          const updatedContacts = contacts.filter((_, i) => i !== index);
+          setContacts(updatedContacts);
         },
       },
     ]);
@@ -57,9 +70,23 @@ export default function HomeScreen() {
 
   // Função para abrir o modal em modo de edição
   function openEditModal(index) {
-    setNewName(contacts[index]); // Carrega o texto da contato no campo de edição
-    setEditIndex(index); // Define o índice da contato a ser editada
-    setModalVisible(true); // Abre o modal
+    const contact = contacts[index];
+    setOriginalContact(contact); // Armazena o contato original
+    setNewName(contact.name);
+    setNewNumber(contact.number);
+    setNewCategory(contact.category);
+    setEditIndex(index);
+    setModalVisible(true);
+  }
+
+  // Função para fechar o modal e restaurar os valores originais
+  function cancelEdit() {
+    if (originalContact) {
+      setNewName(originalContact.name);
+      setNewNumber(originalContact.number);
+      setNewCategory(originalContact.category);
+    }
+    setModalVisible(false);
   }
 
   return (
@@ -68,6 +95,8 @@ export default function HomeScreen() {
       <Pressable
         onPress={() => {
           setNewName("");
+          setNewNumber("");
+          setNewCategory("");
           setEditIndex(null);
           setModalVisible(true);
         }}
@@ -79,20 +108,22 @@ export default function HomeScreen() {
       {/* Lista de contatos */}
       <FlatList
         data={contacts}
-        keyExtractor={(_, i) => String(i)} // Identificador único para cada item
+        keyExtractor={(_, i) => String(i)}
         renderItem={({ item, index }) => (
           <View style={styles.contactItemContainer}>
-            <Text style={styles.contactItem}>{item}</Text>
+            <Text style={styles.contactItem}>
+              {item.name}
+            </Text>
             <View style={styles.contactButtons}>
               {/* Botões para editar e excluir */}
               <Pressable
-                onPress={() => openEditModal(index)} // Abre o modal para editar
+                onPress={() => openEditModal(index)}
                 style={[styles.contactButton, styles.editButton]}
               >
                 <Text style={styles.buttonText}>✏️</Text>
               </Pressable>
               <Pressable
-                onPress={() => confirmDelete(index)} // Exclui a contato
+                onPress={() => confirmDelete(index)}
                 style={[styles.contactButton, styles.deleteButton]}
               >
                 <Text style={styles.buttonText}>🗑️</Text>
@@ -110,67 +141,92 @@ export default function HomeScreen() {
         animationType="slide"
         transparent
         visible={modalVisible}
-        onRequestClose={() => setModalVisible(false)}
+        onRequestClose={cancelEdit} // Chama cancelEdit ao fechar o modal
       >
         <View style={styles.modalBackdrop}>
           <View style={styles.modalContent}>
             <Text style={{ marginBottom: 8 }}>
               {editIndex === null
                 ? "Digite o nome do Contato:"
-                : "Edite a contato:"}
+                : "Edite o nome do contato:"}
             </Text>
             <TextInput
-              value={newName} // O valor do campo de texto é controlado pelo estado `newName`
-              onChangeText={setNewName} // Atualiza o estado com o novo texto
-              placeholder="Ex: Estudar Hooks"
+              value={newName}
+              keyboardType="default"
+              onChangeText={setNewName}
+              placeholder="Nome do seu contato"
               style={styles.input}
             />
             <Text style={{ marginBottom: 8 }}>
               {editIndex === null
                 ? "Digite o numero do contato:"
-                : "Edite a contato:"}
+                : "Edite o número do contato:"}
             </Text>
             <TextInput
-              value={newNumber} // O valor do campo de texto é controlado pelo estado `newNumber`
-              onChangeText={setNewNumber} // Atualiza o estado com o novo texto
-              placeholder="Ex: Estudar Hooks"
+              keyboardType="numeric"
+              value={newNumber}
+              onChangeText={setNewNumber}
+              placeholder="Número do seu contato"
               style={styles.input}
             />
             <Text style={{ marginBottom: 8 }}>
-              {editIndex === null ? "Digite a categoria:" : "Edite a contato:"}
+              {editIndex === null
+                ? "Escolha a categoria:"
+                : "Edite a categoria:"}
             </Text>
             <List.Section>
-            <TouchableOpacity>
-              <List.Item
-              style={{ marginLeft: 10}}
-                title="Pessoal"
-                left={() => <FontAwesome6 name="person" size={24} color="black" />}
-              />
+              <TouchableOpacity
+                onPress={() => setNewCategory("Pessoal")}
+                style={[
+                  styles.categoryButton,
+                  newCategory === "Pessoal" && styles.selectedCategoryButton,
+                ]}
+              >
+                <List.Item
+                  style={{ marginLeft: 10 }}
+                  title="Pessoal"
+                  left={() => (
+                    <FontAwesome6 name="person" size={24} color="black" />
+                  )}
+                />
               </TouchableOpacity>
-              <TouchableOpacity>
-              <List.Item
-              
-              style={{ marginLeft: 10 }}
-                title="Trabalho"
-                left={() => <FontAwesome6 name="briefcase" size={24} color="black" />}
-              />
+              <TouchableOpacity
+                onPress={() => setNewCategory("Trabalho")}
+                style={[
+                  styles.categoryButton,
+                  newCategory === "Trabalho" && styles.selectedCategoryButton,
+                ]}
+              >
+                <List.Item
+                  style={{ marginLeft: 10 }}
+                  title="Trabalho"
+                  left={() => (
+                    <FontAwesome6 name="briefcase" size={24} color="black" />
+                  )}
+                />
               </TouchableOpacity>
-              <TouchableOpacity>
-              <List.Item
-              style={{ marginLeft: 10 }}
-                title="Família"
-                left={() => (
+              <TouchableOpacity
+                onPress={() => setNewCategory("Família")}
+                style={[
+                  styles.categoryButton,
+                  newCategory === "Família" && styles.selectedCategoryButton,
+                ]}
+              >
+                <List.Item
+                  style={{ marginLeft: 10 }}
+                  title="Família"
+                  left={() => (
                     <FontAwesome6 name="people-line" size={24} color="black" />
-                )}
-              />
+                  )}
+                />
               </TouchableOpacity>
             </List.Section>
             <Pressable onPress={addOrEditContact} style={{ marginBottom: 8 }}>
-              <Text style={{ color: "#6200ee", textAlign: "center" }}>
+              <Text style={{ color: "#3774d4", textAlign: "center" }}>
                 {editIndex === null ? "Adicionar" : "Salvar alterações"}
               </Text>
             </Pressable>
-            <Pressable onPress={() => setModalVisible(false)}>
+            <Pressable onPress={cancelEdit}>
               <Text style={{ color: "#999", textAlign: "center" }}>
                 Cancelar
               </Text>
@@ -187,10 +243,18 @@ const styles = StyleSheet.create({
     flex: 1,
     padding: 16,
   },
+  categoryButton: {
+    backgroundColor: "#f1f1f1",
+    borderRadius: 6,
+    marginBottom: 8,
+  },
+  selectedCategoryButton: {
+    backgroundColor: "#3774d4", 
+  },
   addButton: {
     marginBottom: 16,
     alignSelf: "center",
-    backgroundColor: "#e30613", // Vermelho (Pantone 485)
+    backgroundColor: "#523f9e", // Vermelho (Pantone 485)
     padding: 12,
     borderRadius: 8,
   },
@@ -252,6 +316,6 @@ const styles = StyleSheet.create({
     padding: 8,
     borderRadius: 6,
     marginBottom: 12,
-    color: "#f3f",
+    color: "#3774d4",
   },
 });
